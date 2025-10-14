@@ -16,7 +16,7 @@ def validate_sql(query: str) -> bool:
     select_part = match.group(1).split('from')[0].strip()
     from_where_part = match.group(2)
     
-    # HU1: Suportar múltiplos JOINs (0, 1,...,N) 
+    # HU1: Suportar múltiplos JOINs (0, 1,..., N) 
     # A lógica abaixo extrai todas as tabelas, tanto do FROM quanto dos JOINs.
     tables_in_query = re.findall(r'(?:from|join)\s+([a-z0-9_]+)', 'from ' + from_where_part)
     
