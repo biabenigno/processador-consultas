@@ -13,22 +13,13 @@ def load_metadata(filepath: str = "metadados.json"):
     except json.JSONDecodeError:
         print(f"ERRO CRÍTICO: O arquivo '{filepath}' não é um JSON válido.")
         return None
-METADATA = load_metadata()
 
-# validator.py
-
-# ... (import re, import json, load_metadata, METADATA = ...) ...
-
-def validate_sql(query: str, metadata: dict) -> bool: # Adicionado metadata como parâmetro
-    """
-    Função principal que orquestra toda a validação da consulta SQL para a HU1. (Versão Corrigida)
-    Retorna True se a consulta for válida, False caso contrário.
-    """
+# HU1 - Entrada e Validação da Consulta
+def validate_sql(query: str, metadata: dict) -> bool:
     if metadata is None:
         print("Não foi possível validar a consulta pois os metadados não foram carregados.")
         return False
         
-    print("-" * 30)
     print(f"Analisando a consulta: \"{query}\"")
 
     # HU1 - Requisito: Ignorar maiúsculas/minúsculas e espaços repetidos.
@@ -42,7 +33,7 @@ def validate_sql(query: str, metadata: dict) -> bool: # Adicionado metadata como
         
     full_query_str = match.group(0)
     
-    # HU1 - Requisito: Validar sintaxe da cláusula JOIN...ON
+    # HU1 - Requisito (implícito): Validar sintaxe da cláusula JOIN...ON.
     if 'join' in normalized_query and 'on' not in normalized_query:
         print(">>> ERRO: A consulta contém um JOIN mas não possui a cláusula ON.")
         return False
@@ -63,14 +54,11 @@ def validate_sql(query: str, metadata: dict) -> bool: # Adicionado metadata como
         return False
     print(">>> Tabelas validadas com sucesso:", list(valid_tables.keys()))
 
-    # --- CORREÇÃO APLICADA AQUI ---
     # HU1 - Requisito: Validar existência de Atributos.
-    # Primeiro, removemos os literais de string (ex: 'Jose') para não confundi-los com atributos.
     query_without_literals = re.sub(r"\'(.*?)\'", " ", full_query_str)
     
     all_available_attributes = {attr for attributes in valid_tables.values() for attr in attributes}
     allowed_keywords = {"select", "from", "where", "join", "on", "and", "or"}
-    # A busca por atributos agora é feita na string SEM os literais.
     attributes_to_check = re.findall(r'\b[a-z_][a-z0-9_.]+\b', query_without_literals)
 
     for attr in attributes_to_check:
@@ -80,7 +68,6 @@ def validate_sql(query: str, metadata: dict) -> bool: # Adicionado metadata como
                 print(f">>> ERRO: Atributo '{clean_attr}' não foi encontrado nas tabelas declaradas.")
                 return False
     print(">>> Atributos validados com sucesso.")
-    # --- FIM DA CORREÇÃO ---
 
     # HU1 - Requisito: Validar Operadores (=, >, <, <=, >=, <>, AND, ( )).
     from_where_part = match.group(2)

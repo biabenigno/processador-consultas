@@ -30,7 +30,6 @@ def main():
     print("Digite 'sair' para terminar.")
     
     # HU1 - Interface com campo de entrada da consulta.
-    # O loop abaixo serve como a interface de console para a entrada do usuário.
     while True:
         user_query = input("\nDigite sua consulta SQL: ")
         if user_query.lower() == 'sair':
