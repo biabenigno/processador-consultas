@@ -25,20 +25,17 @@ def validate_sql(query: str, metadata: dict) -> bool:
     # HU1 - Requisito: Ignorar maiúsculas/minúsculas e espaços repetidos.
     normalized_query = ' '.join(query.lower().split())
 
-    # HU1 - Requisito: Validar comandos (SELECT, FROM, WHERE, JOIN, ON).
+    # HU1 - Requisito: Validar comandos.
     match = re.match(r"select\s+(.+)\s+from\s+(.+)", normalized_query)
     if not match:
         print(">>> ERRO: Estrutura da consulta inválida. Deve conter SELECT e FROM na ordem correta.")
         return False
-        
     full_query_str = match.group(0)
-    
-    # HU1 - Requisito (implícito): Validar sintaxe da cláusula JOIN...ON.
     if 'join' in normalized_query and 'on' not in normalized_query:
         print(">>> ERRO: A consulta contém um JOIN mas não possui a cláusula ON.")
         return False
 
-    # HU1 - Requisito: Suportar múltiplos JOINs (0, 1,...,N).
+    # HU1 - Requisito: Suportar múltiplos JOINs.
     tables_in_query = re.findall(r'(?:from|join)\s+([a-z0-9_]+)', normalized_query)
     
     # HU1 - Requisito: Validar existência de Tabelas.
