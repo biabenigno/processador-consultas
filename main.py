@@ -1,72 +1,68 @@
-def validate_sql(query: str) -> bool:
-    print("-" * 30)
-    print(f"Analisando a consulta: \"{query}\"")
+from validator import validate_sql
+from query_processor import (
+    convert_to_relational_algebra,
+    build_operator_graph,
+    optimize_graph,
+    generate_execution_plan
+)
+import json
 
-    # HU1: Ignorar maiúsculas/minúsculas e espaços repetidos 
-    normalized_query = ' '.join(query.lower().split())
+def load_metadata(filepath: str = "metadados.json"):
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            print(f"Carregando metadados de '{filepath}'...")
+            data = json.load(f)
+            return {key.lower(): [attr.lower() for attr in value] for key, value in data.items()}
+    except FileNotFoundError:
+        print(f"ERRO CRÍTICO: O arquivo de metadados '{filepath}' não foi encontrado.")
+        return None
+    except json.JSONDecodeError:
+        print(f"ERRO CRÍTICO: O arquivo '{filepath}' não é um JSON válido.")
+        return None
 
-    # HU1: Validar comandos (SELECT, FROM, WHERE, JOIN, ON) 
-    # A regex abaixo valida a estrutura básica e a ordem dos comandos.
-    match = re.match(r"select\s+(.+)\s+from\s+(.+)", normalized_query)
-    if not match:
-        print(">>> ERRO: Estrutura da consulta inválida. Deve conter SELECT e FROM na ordem correta.")
-        return False
+def main():
+    METADATA = load_metadata()
+    if METADATA is None:
+        return
+
+    print("\n" + "="*30)
+    print("Processador de Consultas SQL")
+    print("Digite 'sair' para terminar.")
+    
+    # HU1 - Interface com campo de entrada da consulta.
+    while True:
+        user_query = input("\nDigite sua consulta SQL: ")
+        if user_query.lower() == 'sair':
+            break
         
-    full_query_str = match.group(0)
-    select_part = match.group(1).split('from')[0].strip()
-    from_where_part = match.group(2)
-    
-    # HU1: Suportar múltiplos JOINs (0, 1,..., N) 
-    # A lógica abaixo extrai todas as tabelas, tanto do FROM quanto dos JOINs.
-    tables_in_query = re.findall(r'(?:from|join)\s+([a-z0-9_]+)', 'from ' + from_where_part)
-    
-    # HU1: Validar existência de Tabelas 
-    valid_tables = {}
-    for table in tables_in_query:
-        if table not in METADATA:
-            print(f">>> ERRO: Tabela '{table}' não existe no modelo de dados.")
-            return False
-        valid_tables[table] = METADATA[table]
-    
-    if not valid_tables:
-        print(">>> ERRO: Nenhuma tabela válida foi encontrada na consulta.")
-        return False
-    print(">>> Tabelas validadas com sucesso:", list(valid_tables.keys()))
+        # HU1 - Entrada e Validação da Consulta.
+        is_valid = validate_sql(user_query, METADATA)
+        
+        if is_valid:
+            print("\n--- Processamento da Consulta ---")
+            
+            # HU2 - Conversão para Álgebra Relacional
+            algebra_expression = convert_to_relational_algebra(user_query)
+            print(f"Álgebra Relacional: {algebra_expression}")
 
-    # HU1: Validar existência de Atributos 
-    all_available_attributes = {attr for attributes in valid_tables.values() for attr in attributes}
-    allowed_keywords = {"select", "from", "where", "join", "on", "and", "or"}
-    # A regex abaixo busca por todos os possíveis atributos, incluindo o formato tabela.atributo
-    attributes_to_check = re.findall(r'\b[a-z_][a-z0-9_.]+\b', full_query_str)
+            # HU3 - Construção do Grafo de Operadores
+            operator_graph = build_operator_graph(algebra_expression)
+            # HU3 - Exibir o grafo na interface
+            print("\nGrafo de Operadores (Não Otimizado):")
+            print(operator_graph)
 
-    for attr in attributes_to_check:
-        clean_attr = attr.split('.')[-1]
-        if clean_attr not in all_available_attributes and clean_attr not in allowed_keywords and clean_attr not in valid_tables:
-            # Ignora valores numéricos que podem ser capturados pela regex
-            if not clean_attr.isdigit():
-                print(f">>> ERRO: Atributo '{clean_attr}' não foi encontrado nas tabelas declaradas.")
-                return False
-    print(">>> Atributos validados com sucesso.")
+            # HU4 - Otimização da Consulta
+            optimized_graph = optimize_graph(operator_graph, METADATA)
+            # HU4 - Exibir o grafo otimizado
+            print("\nGrafo de Operadores (Otimizado):")
+            print(optimized_graph)
+            
+            # HU5 - Plano de Execução
+            execution_plan = generate_execution_plan(optimized_graph)
+            # HU5 - Exibir ordem de execução (plano de execução ordenado)
+            print("\n--- Plano de Execução Ordenado ---")
+            for i, step in enumerate(execution_plan, 1):
+                print(f"{i}. {step}")
 
-    # HU1: Validar Operadores (=, >, <, <=, >=, <>, AND, ( )) 
-    # Extrai as cláusulas de condição (WHERE e ON)
-    conditions_part = ' '.join(re.findall(r'(?:where|on)\s+(.*?)(?:\s+join|\s+on|\s*$)', from_where_part))
-    
-    # Remove tudo que for válido (atributos, números, strings) para sobrar apenas os símbolos e palavras de operação
-    potential_operators = re.sub(r"\'(.*?)\'", " ", conditions_part)
-    potential_operators = re.sub(r"\b[a-z0-9_.]+\b", " ", potential_operators)
-    tokens = potential_operators.split()
-    
-    allowed_operators = ['=', '>', '<', '<=', '>=', '<>', 'and', '(', ')']
-    # O operador 'or' não estava na lista original, mas é comum estar junto com 'and'
-    if 'or' in tokens:
-        allowed_operators.append('or')
-
-    for token in tokens:
-        if token not in allowed_operators:
-            print(f">>> ERRO: Operador ou sintaxe '{token}' não é válido.")
-            return False
-    print(">>> Operadores validados com sucesso.")
-    
-    print("\nConsulta VÁLIDA!")
-    return True
+if __name__ == "__main__":
+    main()
